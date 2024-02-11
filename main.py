@@ -95,7 +95,6 @@ async def get_users():
 
 
 
-
 @app.get("/events")
 async def get_events():
     c_events.execute('SELECT * FROM events')
