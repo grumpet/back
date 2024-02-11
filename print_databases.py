@@ -12,8 +12,8 @@ c.execute('SELECT * FROM users')
 users_data = c.fetchall()
 print("users.db:")
 for user in users_data:
-    print(user)
-
+    print(user ,"\n")
+c.close()
 # Close the database connection
 print('events.db')
 # testing events
@@ -23,4 +23,15 @@ c = conn.cursor()
 c.execute('SELECT * FROM events')
 events_data = c.fetchall()
 for event in events_data:
-    print(event)
+    print(event ,"\n")
+    
+conn = sqlite3.connect('user_events.db')
+c = conn.cursor()
+c.execute('SELECT * FROM user_events')
+user_events_data = c.fetchall()
+print('user_events.db')
+for user_event in user_events_data:
+    print(user_event ,"\n")
+
+c.close()
+conn.close()

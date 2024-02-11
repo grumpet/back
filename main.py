@@ -5,7 +5,7 @@ import sqlite3
 from typing import Dict
 
 from pydantic import BaseModel
-from models import User, Event, EventCreate
+from models import User, Event, EventCreate ,UserEvent
 
 
 
@@ -30,6 +30,11 @@ c_events = conn_events.cursor()
 c_events.execute('''CREATE TABLE IF NOT EXISTS events
              (id INTEGER PRIMARY KEY, title TEXT, description TEXT, date TEXT, user_id INTEGER, lata TEXT, longa TEXT)''')
 conn_events.commit()
+
+conn_user_events = sqlite3.connect('user_events.db')
+c_user_events = conn_user_events.cursor()
+c_user_events.execute('''CREATE TABLE IF NOT EXISTS user_events (id INTEGER PRIMARY KEY, user_id INTEGER, event_id INTEGER)''')
+conn_user_events.commit()
 
 # Helper functions
 def get_user(username: str):
@@ -119,6 +124,30 @@ async def create_event(event_data: EventCreate):
     return {"message": "Event created successfully"}
 
 
+
+
+@app.get("/user_events_using_user/{user_id}")
+async def get_user_events(user_id: int):
+    event_list = []
+    c_user_events.execute('SELECT event_id FROM user_events WHERE user_id=?', (user_id,))
+    user_events = c_user_events.fetchall()
+    for event in user_events:
+        c_events.execute('SELECT * FROM events WHERE id=?', (event[0],))
+        event_data = c_events.fetchone()
+        event_list.append(event_data)
+    return event_list
+
+
+@app.get("/user_events_using_event/{event_id}")
+async def get_event_users(event_id: int):
+    user_list = []
+    c_user_events.execute('SELECT user_id FROM user_events WHERE event_id=?', (event_id,))
+    event_users = c_user_events.fetchall()
+    for user in event_users:
+        c_users.execute('SELECT id , username FROM users WHERE id=?', (user[0],))
+        user_data = c_users.fetchone()
+        user_list.append(user_data)
+    return user_list
 
 
 

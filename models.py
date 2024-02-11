@@ -28,3 +28,9 @@ class User(BaseModel):
     lat: Optional[str] = None
     long: Optional[str] = None
     events: Optional [List[Event]] = []
+    
+class UserEvent(BaseModel):
+    user_id: int
+    event_id: int
+    
+    
