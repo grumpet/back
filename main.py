@@ -55,7 +55,7 @@ def create_access_token(data: dict):
 # Routes
 @app.post("/token")
 async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
-    user = authenticate_user(form_data.username, form_data.password ,form_data.lat, form_data.long)
+    user = authenticate_user(form_data.username, form_data.password)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -85,12 +85,6 @@ async def update_user_location(user_id: int, lat: str = Form(...), long: str = F
 
 
 
-
-@app.put("/users/location_update/{user_id}")
-async def update_user_location(user_id: int, lat: str = Form(...), long: str = Form(...)):
-    c_users.execute("UPDATE users SET lat=?, long=? WHERE id=?", (lat, long, user_id))
-    conn_users.commit()
-    return {"message": "User location updated successfully"}
 
 
 @app.get("/users")
