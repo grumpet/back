@@ -1,10 +1,13 @@
 from pydantic import BaseModel
-class User(BaseModel):
-    def __init__(self, id: int, username: str, password: str):
-        self.id = id
-        self.username = username
-        self.password = password
+from typing import List, Optional
 
+class User(BaseModel):
+    id: int
+    username: str
+    password: str
+    lat: Optional[str] = None
+    long: Optional[str] = None
+    events: List[int] = []
 
 class Event(BaseModel):
     def __init__(self, id: int, title: str, description: str, date: str , user_id: int,lata: str, longa: str):

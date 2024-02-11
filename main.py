@@ -18,11 +18,10 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 # OAuth2 scheme for password
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
-# Database connection for users
 conn_users = sqlite3.connect('users.db')
 c_users = conn_users.cursor()
 c_users.execute('''CREATE TABLE IF NOT EXISTS users
-             (id INTEGER PRIMARY KEY, username TEXT, password TEXT)''')
+             (id INTEGER PRIMARY KEY, username TEXT, password TEXT, lat TEXT, long TEXT, events TEXT)''')
 conn_users.commit()
 
 # Database connection for events
@@ -56,7 +55,7 @@ def create_access_token(data: dict):
 # Routes
 @app.post("/token")
 async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
-    user = authenticate_user(form_data.username, form_data.password)
+    user = authenticate_user(form_data.username, form_data.password ,form_data.lat, form_data.long)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -77,14 +76,37 @@ async def register(form_data: OAuth2PasswordRequestForm = Depends()):
 async def protected_route(token: str = Depends(oauth2_scheme)):
     return {"message": "This is a protected route"}
 
+
+@app.put("/users_location_update/{user_id}")
+async def update_user_location(user_id: int, lat: str = Form(...), long: str = Form(...)):
+    c_users.execute("UPDATE users SET lat=?, long=? WHERE id=?", (lat, long, user_id))
+    conn_users.commit()
+    return {"message": "User location updated successfully"}
+
+
+
+
+@app.put("/users/location_update/{user_id}")
+async def update_user_location(user_id: int, lat: str = Form(...), long: str = Form(...)):
+    c_users.execute("UPDATE users SET lat=?, long=? WHERE id=?", (lat, long, user_id))
+    conn_users.commit()
+    return {"message": "User location updated successfully"}
+
+
+@app.get("/users")
+async def get_users():
+    c_users.execute('SELECT id, username, lat, long, events FROM users')
+    users_data = c_users.fetchall()
+    return users_data
+
+
+
+
 @app.get("/events")
 async def get_events():
     c_events.execute('SELECT * FROM events')
     events_data = c_events.fetchall()
     return events_data
-
-
-
 
 
 
