@@ -27,6 +27,8 @@ def fake_register():
     pas=fake.password()
     user=fake.user_name()
     print(user + " -- " +pas)
+    with open("users.txt", "a") as file:
+        file.write(user + " -- " +pas + "\n")
 
     c_users.execute("INSERT INTO users (username, password, lat, long) VALUES (?, ?,?,?)", (user, pwd_context.hash(pas),random.randint(1, 1000),random.randint(1, 1000)))
     conn_users.commit()
