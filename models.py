@@ -17,7 +17,7 @@ class EventCreate(BaseModel):
     description: str
     date: str
     user_id: int
-    lata: str
+    lata: float
     longa: str
     
     
@@ -27,4 +27,4 @@ class User(BaseModel):
     password: str
     lat: Optional[str] = None
     long: Optional[str] = None
-    events: List[Event] = []
+    events: Optional [List[Event]] = []
