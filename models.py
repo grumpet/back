@@ -1,6 +1,8 @@
 from pydantic import BaseModel
 from typing import List, Optional
-
+class Token(BaseModel):
+    access_token: str
+    token_type: str
 
 class Event(BaseModel):
     def __init__(self, id: int, title: str, description: str, date: str , user_id: int,lata: str, longa: str):

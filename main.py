@@ -3,22 +3,31 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from passlib.context import CryptContext
 import sqlite3
 from typing import Dict
-
 from pydantic import BaseModel
-from models import User, Event, EventCreate ,UserEvent
+from models import User, Event, EventCreate ,UserEvent , Token
 
+import jwt
+from jwt.exceptions import PyJWTError
+from datetime import datetime, timedelta
+
+
+
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 30
+SECRET_KEY = "your-secret-key"
 
 
 
 app = FastAPI()
 
+
+# Database connection for users --------------------------------------------------------------------------------
+
 # For password hashing
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # OAuth2 scheme for password
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
-
-# Database connection for users --------------------------------------------------------------------------------
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/token")
 
 def create_users_table():
     conn_users, c_users = connect_users_db()
@@ -33,39 +42,7 @@ def connect_users_db():
     return conn_users, c_users
 
 create_users_table()
-# Database connection for events need to be deleted ----------------------------------------------------------------
-def create_events_table():
-    conn_events ,c_events = connect_events_db()
-   
-    c_events.execute('''CREATE TABLE IF NOT EXISTS events
-                 (id INTEGER PRIMARY KEY, title TEXT, description TEXT, date TEXT, user_id INTEGER, lata TEXT, longa TEXT)''')
-    conn_events.commit()
-    conn_events.close()
 
-def connect_events_db():
-    conn_events = sqlite3.connect('events.db')
-    c_events = conn_events.cursor()
-    return conn_events, c_events
-
-create_events_table()
-
-# Database connection for user events --------------------------------------------------------------------------------
-def create_user_events():
-    conn_user_events,c_user_events =  connect_user_events()
-    c_user_events.execute('''CREATE TABLE IF NOT EXISTS user_events (id INTEGER PRIMARY KEY, user_id INTEGER, event_id INTEGER)''')
-    conn_user_events.commit()
-    conn_user_events.close()
-
-def connect_user_events():
-    conn_user_events = sqlite3.connect('user_events.db')
-    c_user_events = conn_user_events.cursor()
-    return conn_user_events , c_user_events
-
-create_user_events()
-
-
-
-# Helper functions---------------------------------------------------------------------------------------------------
 def get_user(username: str):
     conn_users, c_users = connect_users_db()  # Get the connection and cursor
     c_users.execute('SELECT * FROM users WHERE username=?', (username,))
@@ -86,12 +63,19 @@ def verify_password(plain_password, hashed_password):
     return pwd_context.verify(plain_password, hashed_password)
 
 def create_access_token(data: dict):
-    return data
+    expires_delta = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    expire = datetime.utcnow() + expires_delta
+    to_encode = data.copy()
+    to_encode.update({"exp": expire})
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
 
-
-
-
-
+def decode_token(token: str):
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        return payload
+    except jwt.JWTError:
+        return None
 
 
 
@@ -109,7 +93,6 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
     return {"access_token": access_token, "token_type": "bearer"}
 
 
-
 @app.post("/register")
 async def register(form_data: OAuth2PasswordRequestForm = Depends()):
     hashed_password = pwd_context.hash(form_data.password)
@@ -119,15 +102,16 @@ async def register(form_data: OAuth2PasswordRequestForm = Depends()):
     conn_users.close()
     return {"message": "User created successfully"}
 
-
-
-
-
-
-
 @app.get("/protected")
 async def protected_route(token: str = Depends(oauth2_scheme)):
-    return {"message": "This is a protected route"}
+    payload = decode_token(token)
+    if not payload:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return {"message": "Access granted"}
 
 
 @app.put("/users_location_update/{user_id}")
@@ -151,6 +135,52 @@ async def get_users():
     conn_users.close()
     return users_data
 
+
+
+
+# Database connection for events  --------------------------------------------------------------------------------
+def create_events_table():
+    conn_events ,c_events = connect_events_db()
+   
+    c_events.execute('''CREATE TABLE IF NOT EXISTS events
+                 (id INTEGER PRIMARY KEY, title TEXT, description TEXT, date TEXT, user_id INTEGER, lata TEXT, longa TEXT)''')
+    conn_events.commit()
+    conn_events.close()
+
+def connect_events_db():
+    conn_events = sqlite3.connect('events.db')
+    c_events = conn_events.cursor()
+    return conn_events, c_events
+
+create_events_table()
+
+
+
+@app.get("/events/{event_id}")
+async def get_event(event_id: int):
+    conn_events ,c_events = connect_events_db()
+
+    c_events.execute('SELECT * FROM events WHERE id=?', (event_id,))
+    event_data = c_events.fetchone()
+    conn_events.close()
+    return event_data
+
+@app.put("/events/{event_id}")
+async def update_event(event_id: int, title: str = Form(...), description: str = Form(...), date: str = Form(...), user_id: int = Form(...), lata: str = Form(...), longa: str = Form(...)):
+    conn_events ,c_events = connect_events_db()
+
+    c_events.execute("UPDATE events SET title=?, description=?, date=?, user_id=?, lata=?, longa=? WHERE id=?", (title, description, date, user_id, lata, longa, event_id))
+    conn_events.commit()
+    conn_events.close()
+    return {"message": "Event updated successfully"}
+
+@app.delete("/events/{event_id}")
+async def delete_event(event_id: int):
+    conn_events ,c_events = connect_events_db()
+    c_events.execute("DELETE FROM events WHERE id=?", (event_id,))
+    conn_events.commit()
+    conn_events.close()
+    return {"message": "Event deleted successfully"}
 
 
 @app.get("/events")
@@ -180,6 +210,21 @@ async def create_event(event_data: EventCreate):
     return {"message": "Event created successfully"}
 
 
+
+
+# Database connection for user events --------------------------------------------------------------------------------
+def create_user_events():
+    conn_user_events,c_user_events =  connect_user_events()
+    c_user_events.execute('''CREATE TABLE IF NOT EXISTS user_events (id INTEGER PRIMARY KEY, user_id INTEGER, event_id INTEGER)''')
+    conn_user_events.commit()
+    conn_user_events.close()
+
+def connect_user_events():
+    conn_user_events = sqlite3.connect('user_events.db')
+    c_user_events = conn_user_events.cursor()
+    return conn_user_events , c_user_events
+
+create_user_events()
 
 
 @app.get("/user_events_using_user/{user_id}")
@@ -213,37 +258,4 @@ async def get_event_users(event_id: int):
     conn_user_events.close()
     return user_list
 
-
-
-
-
-
-
-
-
-@app.get("/events/{event_id}")
-async def get_event(event_id: int):
-    conn_events ,c_events = connect_events_db()
-
-    c_events.execute('SELECT * FROM events WHERE id=?', (event_id,))
-    event_data = c_events.fetchone()
-    conn_events.close()
-    return event_data
-
-@app.put("/events/{event_id}")
-async def update_event(event_id: int, title: str = Form(...), description: str = Form(...), date: str = Form(...), user_id: int = Form(...), lata: str = Form(...), longa: str = Form(...)):
-    conn_events ,c_events = connect_events_db()
-
-    c_events.execute("UPDATE events SET title=?, description=?, date=?, user_id=?, lata=?, longa=? WHERE id=?", (title, description, date, user_id, lata, longa, event_id))
-    conn_events.commit()
-    conn_events.close()
-    return {"message": "Event updated successfully"}
-
-@app.delete("/events/{event_id}")
-async def delete_event(event_id: int):
-    conn_events ,c_events = connect_events_db()
-    c_events.execute("DELETE FROM events WHERE id=?", (event_id,))
-    conn_events.commit()
-    conn_events.close()
-    return {"message": "Event deleted successfully"}
 
