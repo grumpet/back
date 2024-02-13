@@ -7,7 +7,7 @@ from pydantic import BaseModel
 from models import User, Event, EventCreate ,UserEvent , Token
 
 import jwt
-from jwt.exceptions import PyJWTError
+from jwt import PyJWTError
 from datetime import datetime, timedelta
 from fastapi.staticfiles import StaticFiles
 
