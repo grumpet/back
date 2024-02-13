@@ -9,16 +9,32 @@ from models import User, Event, EventCreate ,UserEvent , Token
 import jwt
 from jwt.exceptions import PyJWTError
 from datetime import datetime, timedelta
+from fastapi.staticfiles import StaticFiles
+
+from fastapi.responses import HTMLResponse
+
+from fastapi.middleware.cors import CORSMiddleware
 
 
 
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
-SECRET_KEY = "your-secret-key"
+SECRET_KEY = "ani-lo-kamtzan"
 
 
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allow requests from any origin (replace with specific origins as needed)
+    allow_credentials=True,
+    allow_methods=["POST"],
+    allow_headers=["Content-Type"],
+)
+
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
 
 
 # Database connection for users --------------------------------------------------------------------------------
@@ -80,9 +96,10 @@ def decode_token(token: str):
 
 
 
+
 @app.post("/token")
-async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
-    user = authenticate_user(form_data.username, form_data.password)
+async def login_for_access_token(username: str = Form(...), password: str = Form(...)):
+    user = authenticate_user(username, password)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -91,6 +108,7 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
         )
     access_token = create_access_token({"sub": user[1]})
     return {"access_token": access_token, "token_type": "bearer"}
+
 
 
 @app.post("/register")

@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Registration</title>
+</head>
+<body>
+    <h2>User Registration</h2>
+    <form id="registrationForm">
+        <div>
+            <label for="username">Username:</label>
+            <input type="text" id="username" name="username" required>
+        </div>
+        <div>
+            <label for="password">Password:</label>
+            <input type="password" id="password" name="password" required>
+        </div>
+        <button type="submit">Register</button>
+    </form>
+
+    <script>
+        document.getElementById('registrationForm').addEventListener('submit', function(event) {
+            event.preventDefault();
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+
+            // Send a POST request to the server to register the user
+            fetch('http://localhost:8000/register', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`
+            })
+            
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Registration failed');
+                }
+                return response.json();
+            })
+            .then(data => {
+                alert(data.message);
+                // Optionally, redirect to a different page or perform other actions
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Registration failed. Please try again.');
+            });
+        });
+    </script>
+</body>
+</html>
