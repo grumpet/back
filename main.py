@@ -21,7 +21,6 @@ from fastapi.middleware.cors import CORSMiddleware
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 SECRET_KEY = "ani-lo-kamtzan"
-encoded = jwt.encode({'some': 'payload'}, SECRET_KEY, algorithm='HS256')
 
 
 
