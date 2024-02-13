@@ -34,7 +34,6 @@ app.add_middleware(
     allow_headers=["Content-Type"],
 )
 
-app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
 
@@ -104,11 +103,6 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
         return username
     except TypeError:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
-
-# Example endpoint to demonstrate how to use the current user dependency
-@app.get("/users/me")
-async def read_current_user(current_user: str = Depends(get_current_user)):
-    return {"username": current_user}
 
 
 
