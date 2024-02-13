@@ -7,7 +7,7 @@ from pydantic import BaseModel
 from models import User, Event, EventCreate ,UserEvent , Token
 
 import jwt
-from jwt import PyJWTError
+from jwt.exceptions import PyJWTError
 from datetime import datetime, timedelta
 from fastapi.staticfiles import StaticFiles
 
@@ -90,7 +90,7 @@ def decode_token(token: str):
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         return payload
-    except jwt.JWTError:
+    except TypeError:
         return None
 
 
@@ -101,7 +101,7 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
         if username is None:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
         return username
-    except PyJWTError:
+    except TypeError:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
 
 # Example endpoint to demonstrate how to use the current user dependency
