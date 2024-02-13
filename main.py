@@ -21,6 +21,7 @@ from fastapi.middleware.cors import CORSMiddleware
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 SECRET_KEY = "ani-lo-kamtzan"
+encoded = jwt.encode({'some': 'payload'}, SECRET_KEY, algorithm='HS256')
 
 
 
@@ -31,7 +32,7 @@ app.add_middleware(
     allow_origins=["*"],  # Allow requests from any origin (replace with specific origins as needed)
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["Content-Type"],
+    allow_headers=["*"],
 )
 
 
@@ -133,6 +134,7 @@ async def register(form_data: OAuth2PasswordRequestForm = Depends()):
 @app.get("/protected")
 async def protected_route(token: str = Depends(oauth2_scheme)):
     payload = decode_token(token)
+    print(payload)
     if not payload:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
