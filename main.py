@@ -105,10 +105,19 @@ async def login_for_access_token(username: str = Form(...), password: str = Form
 async def register(form_data: OAuth2PasswordRequestForm = Depends()):
     hashed_password = pwd_context.hash(form_data.password)
     conn_users , c_users = connect_users_db()
+    if get_user(form_data.username):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Username already exists",
+            )
+    access_token = create_access_token(form_data.username)
+
     c_users.execute("INSERT INTO users (username, password) VALUES (?, ?)", (form_data.username, hashed_password))
     conn_users.commit()
     conn_users.close()
-    return {"message": "User created successfully"}
+ 
+ 
+    return access_token
 
 @app.get("/protected")
 async def protected_route(token: str = Depends(oauth2_scheme)):
