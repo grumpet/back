@@ -70,12 +70,13 @@ def fake_user_event(event_id, user_id):
 def fake_register():
     pas=fake.password()
     user=fake.user_name()
+    phone = fake.phone_number()
     text  = user + " -- " +pas
     print(text)
     with open("users.txt", "a") as file:
         file.write(text + "\n")
 
-    c_users.execute("INSERT INTO users (username, password, lat, long) VALUES (?, ?,?,?)", (user, pwd_context.hash(pas),random.randint(1, 1000),random.randint(1, 1000)))
+    c_users.execute("INSERT INTO users (username, password, lat, long , phone , token) VALUES (?, ?,?,?, ? , ?)", (user, pwd_context.hash(pas),random.randint(1, 1000),random.randint(1, 1000)) , phone , None)
     id = c_users.lastrowid
     conn_users.commit()
     return id

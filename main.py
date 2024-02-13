@@ -5,6 +5,7 @@ import sqlite3
 from typing import Dict
 from pydantic import BaseModel
 from models import User, Event, EventCreate ,UserEvent , Token
+from fastapi.templating import Jinja2Templates
 
 import jwt
 #from jwt.exceptions import PyJWTError
@@ -47,7 +48,7 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/token")
 def create_users_table():
     conn_users, c_users = connect_users_db()
     c_users.execute('''CREATE TABLE IF NOT EXISTS users
-                 (id INTEGER PRIMARY KEY, username TEXT, password TEXT, lat TEXT, long TEXT, events TEXT)''')
+                 (id INTEGER PRIMARY KEY, username TEXT, password TEXT, lat TEXT, long TEXT, phone TEXT ,token TEXT)''')
     conn_users.commit()
     conn_users.close()
     
@@ -74,12 +75,22 @@ def authenticate_user(username: str, password: str):
         return False
     return user
 
+
+def authenticate_user_token(token: str = Depends(oauth2_scheme)):
+    conn_users, c_users = connect_users_db()
+    c_users.execute('SELECT * FROM users WHERE token=?', (token,))
+    token_data = c_users.fetchone()
+    conn_users.close()
+    return token_data
+
+
+
 def verify_password(plain_password, hashed_password):
     return pwd_context.verify(plain_password, hashed_password)
 
 # Token generation function
 def create_access_token(username: str):
-    token_expiry = datetime.utcnow() + timedelta(minutes=30)  # Set token expiry to 30 minutes
+    token_expiry = datetime.utcnow() + timedelta(days=90)  # Set token expiry to 30 minutes
     token = secrets.token_hex(32)  # Generate a random token
     return {"access_token": token, "token_type": "bearer", "expires_at": token_expiry}
 
@@ -100,6 +111,17 @@ async def login_for_access_token(username: str = Form(...), password: str = Form
     access_token = create_access_token(username)
     return access_token
 
+@app.post("/login_token")
+async def login_using_access_token(token: str):
+    user = authenticate_user_token(token)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return {"message": "Token is valid" ,  "username": user[1] , "id": user[0], "phone": user[5], "lat": user[3], "long": user[4]}
+
 
 @app.post("/register")
 async def register(form_data: OAuth2PasswordRequestForm = Depends()):
@@ -112,11 +134,9 @@ async def register(form_data: OAuth2PasswordRequestForm = Depends()):
             )
     access_token = create_access_token(form_data.username)
 
-    c_users.execute("INSERT INTO users (username, password) VALUES (?, ?)", (form_data.username, hashed_password))
+    c_users.execute("INSERT INTO users (username, password,token) VALUES (?, ?, ?)", (form_data.username, hashed_password , access_token["access_token"]))
     conn_users.commit()
     conn_users.close()
- 
- 
     return access_token
 
 @app.get("/protected")

@@ -27,9 +27,10 @@ class User(BaseModel):
     id: int
     username: str
     password: str
+    phone : str
     lat: Optional[str] = None
     long: Optional[str] = None
-    events: Optional [List[Event]] = []
+    token: Optional[str] = None
     
 class UserEvent(BaseModel):
     user_id: int
