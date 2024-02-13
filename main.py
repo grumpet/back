@@ -16,16 +16,15 @@ from fastapi.responses import HTMLResponse
 
 from fastapi.middleware.cors import CORSMiddleware
 
+import secrets
 
 
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
-SECRET_KEY = "ani-lo-kamtzan"
 
 
 
 app = FastAPI()
 
+# Cors middleware for enabling cross-origin requests
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # Allow requests from any origin (replace with specific origins as needed)
@@ -78,31 +77,13 @@ def authenticate_user(username: str, password: str):
 def verify_password(plain_password, hashed_password):
     return pwd_context.verify(plain_password, hashed_password)
 
-def create_access_token(data: dict):
-    expires_delta = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    expire = datetime.utcnow() + expires_delta
-    to_encode = data.copy()
-    to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-    return encoded_jwt
-
-def decode_token(token: str):
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        return payload
-    except TypeError:
-        return None
+# Token generation function
+def create_access_token(username: str):
+    token_expiry = datetime.utcnow() + timedelta(minutes=30)  # Set token expiry to 30 minutes
+    token = secrets.token_hex(32)  # Generate a random token
+    return {"access_token": token, "token_type": "bearer", "expires_at": token_expiry}
 
 
-def get_current_user(token: str = Depends(oauth2_scheme)):
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        username: str = payload.get("sub")
-        if username is None:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
-        return username
-    except TypeError:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
 
 
 
@@ -116,9 +97,8 @@ async def login_for_access_token(username: str = Form(...), password: str = Form
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    access_token = create_access_token({"sub": user[1]})
-    return {"access_token": access_token, "token_type": "bearer"}
-
+    access_token = create_access_token(username)
+    return access_token
 
 
 @app.post("/register")
@@ -132,14 +112,6 @@ async def register(form_data: OAuth2PasswordRequestForm = Depends()):
 
 @app.get("/protected")
 async def protected_route(token: str = Depends(oauth2_scheme)):
-    payload = decode_token(token)
-    print(payload)
-    if not payload:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired token",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
     return {"message": "Access granted"}
 
 
