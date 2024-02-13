@@ -44,8 +44,8 @@
                 // Save the access token in local storage
                 localStorage.setItem('accessToken', data.access_token);
 
-                // Redirect to the dashboard or some other page
-                window.location.href = '/protected';
+                // Redirect to the protected route on port 8000
+                window.location.href = 'http://localhost:8000/protected';
             })
             .catch(error => {
                 console.error('Error:', error);

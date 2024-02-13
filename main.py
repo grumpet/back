@@ -29,7 +29,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # Allow requests from any origin (replace with specific origins as needed)
     allow_credentials=True,
-    allow_methods=["POST"],
+    allow_methods=["*"],
     allow_headers=["Content-Type"],
 )
 
@@ -93,6 +93,21 @@ def decode_token(token: str):
     except jwt.JWTError:
         return None
 
+
+def get_current_user(token: str = Depends(oauth2_scheme)):
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username: str = payload.get("sub")
+        if username is None:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+        return username
+    except PyJWTError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+
+# Example endpoint to demonstrate how to use the current user dependency
+@app.get("/users/me")
+async def read_current_user(current_user: str = Depends(get_current_user)):
+    return {"username": current_user}
 
 
 
