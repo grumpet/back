@@ -1,13 +1,15 @@
 from pydantic import BaseModel
 from typing import List, Optional
 import datetime
-from sqlalchemy import create_engine, Column, Integer, String, DateTime
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
 
-
-Base = declarative_base()
-
+# Pydantic BaseModel for the request body with optional fields
+class UpdateUserData(BaseModel):
+    username: Optional[str] = None
+    password: Optional[str] = None
+    lat: Optional[str] = None
+    long: Optional[str] = None
+    phone: Optional[str] = None
+    
 class Event(BaseModel):
     def __init__(self, id: int, title: str, description: str, date: str , user_id: int,lata: str, longa: str):
         self.id = id

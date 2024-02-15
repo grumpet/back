@@ -4,7 +4,7 @@ from passlib.context import CryptContext
 import sqlite3
 from typing import Dict , List
 from pydantic import BaseModel
-from models import User, Event, EventCreate ,UserEvent  , Message
+from models import User, Event, EventCreate ,UserEvent  , Message , UpdateUserData
 from fastapi.templating import Jinja2Templates
 from fastapi import FastAPI, Form, HTTPException, status
 from datetime import datetime, timedelta
@@ -196,14 +196,36 @@ async def update_user_location(user_id: int, lat: str = Form(...), long: str = F
 @app.get("/users")
 async def get_users():
     conn_users , c_users = connect_users_db()
-    c_users.execute('SELECT id, username, lat, long, events FROM users')
+    c_users.execute('SELECT id, username, lat, long, phone , token FROM users')
     users_data = c_users.fetchall()
     conn_users.close()
     return users_data
 
+@app.get("/users/{user_id}")
+async def get_user(user_id: int):
+    conn_users , c_users = connect_users_db()
+    c_users.execute('SELECT id , username, lat, long, phone , token FROM users WHERE id=?', (user_id,))
+    user_data = c_users.fetchone()
+    conn_users.close()
+    return user_data
 
 
+@app.put("/users/{user_id}")
+async def update_user(user_id: int, data: UpdateUserData):
+    fields_to_update = {k: v for k, v in data.dict().items() if v is not None}
+    if not fields_to_update:
+        raise HTTPException(status_code=400, detail="No fields provided for update")
+    conn_users, c_users = connect_users_db()
+    try:
+        query = "UPDATE users SET "
+        query += ", ".join(f"{field} = ?" for field in fields_to_update.keys())
+        query += " WHERE id = ?"
+        c_users.execute(query, list(fields_to_update.values()) + [user_id])
+        conn_users.commit()
+    finally:
+        conn_users.close()
 
+    return {"message": "User updated successfully"}
 # Database connection for events  --------------------------------------------------------------------------------
 def create_events_table():
     conn_events ,c_events = connect_events_db()
