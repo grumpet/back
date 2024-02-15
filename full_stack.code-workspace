@@ -1,0 +1,20 @@
+{
+	"folders": [
+		{
+			"path": "../full_stack"
+		},
+		{
+			"path": "../auth_sqlite"
+		},
+		{
+			"path": "."
+		},
+		{
+			"path": "../FastAPI-UserAuth-main/FastAPI-UserAuth-main"
+		}
+	],
+	"settings": {
+		"liveServer.settings.multiRootWorkspaceName": "second",
+		"git.ignoreLimitWarning": true
+	}
+}

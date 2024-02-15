@@ -1,15 +1,12 @@
-from fastapi import FastAPI, HTTPException, Depends, status, Form
+from fastapi import FastAPI, HTTPException, Depends, status, Form ,WebSocket, WebSocketDisconnect
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from passlib.context import CryptContext
 import sqlite3
-from typing import Dict
+from typing import Dict , List
 from pydantic import BaseModel
-from models import User, Event, EventCreate ,UserEvent , Token
+from models import User, Event, EventCreate ,UserEvent  , Message
 from fastapi.templating import Jinja2Templates
-
-import jwt
-#from jwt.exceptions import PyJWTError
-#fix in nxt deployment
+from fastapi import FastAPI, Form, HTTPException, status
 from datetime import datetime, timedelta
 from fastapi.staticfiles import StaticFiles
 
@@ -35,6 +32,45 @@ app.add_middleware(
 )
 
 
+# chat websocket functionality --------------------------------------------------------------------------------
+
+def create_message_table():
+    conn_messages, c_messages = connect_messages_db()
+    c_messages.execute('''CREATE TABLE IF NOT EXISTS messages
+                 (id INTEGER PRIMARY KEY, sender_id INTEGER, recipient_id INTEGER, content TEXT, timestamp TEXT)''')
+    conn_messages.commit()
+    conn_messages.close()
+
+def connect_messages_db():
+    conn_messages = sqlite3.connect('messages.db')
+    c_messages = conn_messages.cursor()
+    return conn_messages, c_messages
+
+create_message_table()
+
+async def save_message(content: str, sender_id: int):
+    conn_messages, c_messages = connect_messages_db()
+    timestamp = datetime.utcnow()
+    c_messages.execute("INSERT INTO messages (sender_id, content, timestamp) VALUES (?, ?, ?)", (sender_id, content, timestamp))
+    conn_messages.commit()
+    conn_messages.close()
+
+connected_users = {}
+
+@app.websocket("/ws/{user_id}")
+async def websocket_endpoint(user_id: str, websocket: WebSocket):
+    await websocket.accept()
+    connected_users[user_id] = websocket
+    print(connected_users)
+    try:
+        while True:
+            data = await websocket.receive_text()
+            for user, user_ws in connected_users.items():
+                if user != user_id:
+                    await user_ws.send_text(data)
+    except:
+        del connected_users[user_id]
+        await websocket.close()
 
 
 # Database connection for users --------------------------------------------------------------------------------
@@ -76,13 +112,12 @@ def authenticate_user(username: str, password: str):
     return user
 
 
-def authenticate_user_token(token: str = Depends(oauth2_scheme)):
+def authenticate_user_token(token: str):
     conn_users, c_users = connect_users_db()
     c_users.execute('SELECT * FROM users WHERE token=?', (token,))
     token_data = c_users.fetchone()
     conn_users.close()
     return token_data
-
 
 
 def verify_password(plain_password, hashed_password):
@@ -97,6 +132,8 @@ def create_access_token(username: str):
 
 
 
+def hash_access_token(token: str):
+    return pwd_context.hash(token)
 
 
 @app.post("/token")
@@ -133,7 +170,6 @@ async def register(form_data: OAuth2PasswordRequestForm = Depends()):
                 detail="Username already exists",
             )
     access_token = create_access_token(form_data.username)
-
     c_users.execute("INSERT INTO users (username, password,token) VALUES (?, ?, ?)", (form_data.username, hashed_password , access_token["access_token"]))
     conn_users.commit()
     conn_users.close()
