@@ -20,8 +20,14 @@ import secrets
 
 
 
+
+
+
 app = FastAPI()
 
+@app.get("/")
+async def read_root():
+    return {"message": "Welcome to the map application"}
 # Cors middleware for enabling cross-origin requests
 app.add_middleware(
     CORSMiddleware,
@@ -226,6 +232,9 @@ async def update_user(user_id: int, data: UpdateUserData):
         conn_users.close()
 
     return {"message": "User updated successfully"}
+
+
+
 # Database connection for events  --------------------------------------------------------------------------------
 def create_events_table():
     conn_events ,c_events = connect_events_db()
