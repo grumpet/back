@@ -109,7 +109,14 @@ def get_user(username: str):
     if user_data:
         return user_data
     
-
+def check_user(username: str):
+    conn_users, c_users = connect_users_db()  
+    c_users.execute('SELECT * FROM users WHERE username=?', (username,))
+    user_data = c_users.fetchone()
+    conn_users.close()  
+    if user_data:
+        return True
+    return False
 
 def authenticate_user(username: str, password: str):
     user = get_user(username)
@@ -173,6 +180,12 @@ async def register(form_data: OAuth2PasswordRequestForm = Depends()):
     hashed_password = pwd_context.hash(form_data.password)
     conn_users , c_users = connect_users_db()
     access_token = create_access_token(form_data.username)
+    if check_user(form_data.username):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Username already exists",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     c_users.execute("INSERT INTO users (username, password,token ,token_expiry ) VALUES (?, ?, ? , ?)", (form_data.username, hashed_password , access_token["access_token"], access_token["expires_at"]))
     conn_users.commit()
     conn_users.close()
