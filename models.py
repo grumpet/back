@@ -29,11 +29,7 @@ class EventCreate(BaseModel):
     longa: str
 
 
-class Message(BaseModel):
-    id : int
-    message : str
-    sender : int
-    reciver : int
+
 class User(BaseModel):
     id: int
     username: str

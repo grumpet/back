@@ -4,8 +4,7 @@ from passlib.context import CryptContext
 import sqlite3
 from typing import Dict , List
 from pydantic import BaseModel
-from models import User, Event, EventCreate ,UserEvent  , Message , UpdateUserData
-from fastapi.templating import Jinja2Templates
+from models import User, Event, EventCreate ,UserEvent   , UpdateUserData
 from fastapi import FastAPI, Form, HTTPException, status
 from datetime import datetime, timedelta
 from fastapi.staticfiles import StaticFiles
@@ -16,8 +15,11 @@ from fastapi.middleware.cors import CORSMiddleware
 
 import secrets
 
+from dataclasses import dataclass
 
+import json
 
+import uuid
 
 
 
@@ -35,47 +37,55 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    
 )
 
 
 # chat websocket functionality --------------------------------------------------------------------------------
 
-def create_message_table():
-    conn_messages, c_messages = connect_messages_db()
-    c_messages.execute('''CREATE TABLE IF NOT EXISTS messages
-                 (id INTEGER PRIMARY KEY, sender_id INTEGER, recipient_id INTEGER, content TEXT, timestamp TEXT)''')
-    conn_messages.commit()
-    conn_messages.close()
-
-def connect_messages_db():
-    conn_messages = sqlite3.connect('messages.db')
-    c_messages = conn_messages.cursor()
-    return conn_messages, c_messages
-
-create_message_table()
-
-async def save_message(content: str, sender_id: int):
-    conn_messages, c_messages = connect_messages_db()
-    timestamp = datetime.utcnow()
-    c_messages.execute("INSERT INTO messages (sender_id, content, timestamp) VALUES (?, ?, ?)", (sender_id, content, timestamp))
-    conn_messages.commit()
-    conn_messages.close()
 
 connected_users = {}
+@app.websocket("/ws_send/{user_id}/{token}/{user_id_to}")
+async def websocket_endpoint(user_id: str, token: str, user_id_to: str, websocket: WebSocket):
+    if not check_user_token_equals(token, user_id):
+        await websocket.close()
+        raise HTTPException(status_code=401, detail="Incorrect auth")
 
-@app.websocket("/ws/{user_id}")
-async def websocket_endpoint(user_id: str, websocket: WebSocket):
     await websocket.accept()
     connected_users[user_id] = websocket
     print(connected_users)
     try:
         while True:
             data = await websocket.receive_text()
-            for user, user_ws in connected_users.items():
-                if user != user_id:
-                    await user_ws.send_text(data)
-    except:
+            # Check if user_id_to is connected
+            if user_id_to in connected_users:
+                user_ws_to = connected_users[user_id_to]
+                await user_ws_to.send_text(data)
+            else:
+                # Handle the case where user_id_to is not connected
+                print(f"User {user_id_to} is not connected.")
+    except WebSocketDisconnect:
         del connected_users[user_id]
+        await websocket.close()
+    except Exception as e:
+        print(f"Error: {e}")
+        del connected_users[user_id]
+        await websocket.close()
+
+@app.websocket("/ws/{user_id}/{token}")
+async def websocket_endpoint(user_id: str, websocket: WebSocket):
+    await websocket.accept()
+    connected_users[user_id] = websocket
+    print(connected_users)
+    try:
+        while True:
+            await websocket.receive_text()  # Just receive and discard the message
+    except WebSocketDisconnect:
+        del connected_users[user_id]
+    except Exception as e:
+        print(f"Error: {e}")
+        del connected_users[user_id]
+    finally:
         await websocket.close()
 
 
@@ -108,6 +118,15 @@ def get_user(username: str):
     conn_users.close()  
     if user_data:
         return user_data
+    
+def check_user_token_equals(token: str, user_id: int):
+    conn_users, c_users = connect_users_db()  
+    c_users.execute('SELECT * FROM users WHERE id=?', (user_id,))
+    user_data = c_users.fetchone()
+    conn_users.close()  
+    if user_data[6] == token:
+        return True
+    return False
     
 def check_user(username: str):
     conn_users, c_users = connect_users_db()  
