@@ -90,7 +90,7 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/token")
 def create_users_table():
     conn_users, c_users = connect_users_db()
     c_users.execute('''CREATE TABLE IF NOT EXISTS users
-                 (id INTEGER PRIMARY KEY, username TEXT, password TEXT, lat TEXT, long TEXT, phone TEXT ,token TEXT)''')
+                 (id INTEGER PRIMARY KEY, username TEXT, password TEXT, lat TEXT, long TEXT, phone TEXT ,token TEXT ,token_expiry TEXT)''')
     conn_users.commit()
     conn_users.close()
     
@@ -102,12 +102,14 @@ def connect_users_db():
 create_users_table()
 
 def get_user(username: str):
-    conn_users, c_users = connect_users_db()  # Get the connection and cursor
+    conn_users, c_users = connect_users_db()  
     c_users.execute('SELECT * FROM users WHERE username=?', (username,))
     user_data = c_users.fetchone()
-    conn_users.close()  # Close the connection after fetching the user data
+    conn_users.close()  
     if user_data:
         return user_data
+    
+
 
 def authenticate_user(username: str, password: str):
     user = get_user(username)
@@ -170,13 +172,8 @@ async def login_using_access_token(token: str):
 async def register(form_data: OAuth2PasswordRequestForm = Depends()):
     hashed_password = pwd_context.hash(form_data.password)
     conn_users , c_users = connect_users_db()
-    if get_user(form_data.username):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Username already exists",
-            )
     access_token = create_access_token(form_data.username)
-    c_users.execute("INSERT INTO users (username, password,token) VALUES (?, ?, ?)", (form_data.username, hashed_password , access_token["access_token"]))
+    c_users.execute("INSERT INTO users (username, password,token ,token_expiry ) VALUES (?, ?, ? , ?)", (form_data.username, hashed_password , access_token["access_token"], access_token["expires_at"]))
     conn_users.commit()
     conn_users.close()
     return access_token
@@ -202,7 +199,7 @@ async def update_user_location(user_id: int, lat: str = Form(...), long: str = F
 @app.get("/users")
 async def get_users():
     conn_users , c_users = connect_users_db()
-    c_users.execute('SELECT id, username, lat, long, phone , token FROM users')
+    c_users.execute('SELECT id, username, lat, long, phone FROM users')
     users_data = c_users.fetchall()
     conn_users.close()
     return users_data
