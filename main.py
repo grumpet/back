@@ -21,7 +21,7 @@ import json
 
 import uuid
 
-
+import re
 
 
 
@@ -64,10 +64,19 @@ create_messages_table()
 @app.get("/messages/{user_1_id}/{user_2_id}")
 async def get_messages(user_1_id: int, user_2_id: int):
     conn_messages, c_messages = connect_messages_db()
-    c_messages.execute('SELECT * FROM messages WHERE (user_1_id=? AND user_2_id=?) OR (user_1_id=? AND user_2_id=?)', (user_1_id, user_2_id, user_2_id, user_1_id))
+    c_messages.execute('SELECT user_1_id, user_2_id, message, current_date_time FROM messages WHERE (user_1_id=? AND user_2_id=?) OR (user_1_id=? AND user_2_id=?)', (user_1_id, user_2_id, user_2_id, user_1_id))
     messages_data = c_messages.fetchall()
     conn_messages.close()
-    return messages_data
+    messages_dict = []
+    for message in messages_data:
+        message_dict = {
+            "user_1_id": message[0],
+            "user_2_id": message[1],
+            "message": message[2],
+            "current_date_time": message[3]
+        }
+        messages_dict.append(message_dict)
+    return messages_dict
 
 @app.post("/messages/{user_1_id}/{user_2_id}")
 async def create_message(user_1_id: int, user_2_id: int, message: str):
@@ -102,7 +111,7 @@ def get_user(username: str):
     conn_users, c_users = connect_users_db()  
     c_users.execute('SELECT * FROM users WHERE username=?', (username,))
     user_data = c_users.fetchone()
-    conn_users.close()  
+    conn_users.close()
     if user_data:
         return user_data
     
@@ -140,6 +149,24 @@ def authenticate_user_token(token: str):
     conn_users.close()
     return token_data
 
+
+def is_safe_password(password):
+    # Check length
+    if len(password) < 8:
+        return "password must be at least 8 characters long"
+    # Check for at least one uppercase letter
+    if not re.search(r"[A-Z]", password):
+        return "password must contain at least one uppercase letter"
+    # Check for at least one lowercase letter
+    if not re.search(r"[a-z]", password):
+        return "password must contain at least one lowercase letter"
+    # Check for at least one digit
+    if not re.search(r"\d", password):
+        return "password must contain at least one digit"
+    # Check for at least one special character
+    if not re.search(r"[ !\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~]", password):
+        return "password must contain at least one special character"    
+    return True
 
 def verify_password(plain_password, hashed_password):
     return pwd_context.verify(plain_password, hashed_password)
