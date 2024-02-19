@@ -44,6 +44,8 @@ class UserEvent(BaseModel):
     user_id: int
     event_id: int
     
+    
+
 
 
 

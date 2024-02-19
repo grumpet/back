@@ -32,6 +32,15 @@ user_events_data = c.fetchall()
 print('user_events.db')
 for user_event in user_events_data:
     print(user_event ,"\n")
+    
+conn = sqlite3.connect('messages.db')
+c = conn.cursor()
+c.execute('SELECT * FROM messages')
+messages_data = c.fetchall()
+print('messages.db')
+for message in messages_data:
+    print(message ,"\n")
+    
 
 c.close()
 conn.close()
