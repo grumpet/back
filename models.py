@@ -44,7 +44,13 @@ class UserEvent(BaseModel):
     user_id: int
     event_id: int
     
-    
+
+class Message(BaseModel):
+    user_id_1: int
+    text: str
+    current_date_time: str
+    user_id_2: int
+    avatar: str
 
 
 
