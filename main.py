@@ -41,55 +41,42 @@ app.add_middleware(
 )
 
 
-# chat websocket functionality --------------------------------------------------------------------------------
 
 
-connected_users = {}
-@app.websocket("/ws_send/{user_id}/{token}/{user_id_to}")
-async def websocket_endpoint(user_id: str, token: str, user_id_to: str, websocket: WebSocket):
-    if not check_user_token_equals(token, user_id):
-        await websocket.close()
-        raise HTTPException(status_code=401, detail="Incorrect auth")
 
-    await websocket.accept()
-    connected_users[user_id] = websocket
-    print(connected_users)
-    try:
-        while True:
-            data = await websocket.receive_text()
-            # Check if user_id_to is connected
-            if user_id_to in connected_users:
-                user_ws_to = connected_users[user_id_to]
-                await user_ws_to.send_text(data)
-            else:
-                # Handle the case where user_id_to is not connected
-                print(f"User {user_id_to} is not connected.")
-    except WebSocketDisconnect:
-        del connected_users[user_id]
-        await websocket.close()
-    except Exception as e:
-        print(f"Error: {e}")
-        del connected_users[user_id]
-        await websocket.close()
+# Database messages for users --------------------------------------------------------------------------------
+# create a table for messages that will be used to store messages the users send to each other the colomns are id, user_1_id, user_2_id , message, current_date_time 
+def create_messages_table():
+    conn_messages ,c_messages =  connect_messages_db()
+    c_messages.execute('''CREATE TABLE IF NOT EXISTS messages
+                 (id INTEGER PRIMARY KEY, user_1_id INTEGER, user_2_id INTEGER, message TEXT, current_date_time TEXT)''')
+    conn_messages.commit()
+    conn_messages.close()
 
-@app.websocket("/ws/{user_id}/{token}")
-async def websocket_endpoint(user_id: str, websocket: WebSocket):
-    await websocket.accept()
-    connected_users[user_id] = websocket
-    print(connected_users)
-    try:
-        while True:
-            await websocket.receive_text()  # Just receive and discard the message
-    except WebSocketDisconnect:
-        del connected_users[user_id]
-    except Exception as e:
-        print(f"Error: {e}")
-        del connected_users[user_id]
-    finally:
-        await websocket.close()
+def connect_messages_db():
+    conn_messages = sqlite3.connect('messages.db')
+    c_messages = conn_messages.cursor()
+    return conn_messages, c_messages
+
+create_messages_table()
 
 
-# Database connection for users --------------------------------------------------------------------------------
+@app.get("/messages/{user_1_id}/{user_2_id}")
+async def get_messages(user_1_id: int, user_2_id: int):
+    conn_messages, c_messages = connect_messages_db()
+    c_messages.execute('SELECT * FROM messages WHERE (user_1_id=? AND user_2_id=?) OR (user_1_id=? AND user_2_id=?)', (user_1_id, user_2_id, user_2_id, user_1_id))
+    messages_data = c_messages.fetchall()
+    conn_messages.close()
+    return messages_data
+
+@app.post("/messages/{user_1_id}/{user_2_id}")
+async def create_message(user_1_id: int, user_2_id: int, message: str):
+    conn_messages ,c_messages = connect_messages_db()
+    current_date_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    c_messages.execute("INSERT INTO messages (user_1_id, user_2_id, message, current_date_time) VALUES (?, ?, ?, ?)", (user_1_id, user_2_id, message, current_date_time))
+    conn_messages.commit()
+    conn_messages.close()
+    return {"message": "Message created successfully"}
 
 # For password hashing
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
