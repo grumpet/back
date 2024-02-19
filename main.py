@@ -4,7 +4,7 @@ from passlib.context import CryptContext
 import sqlite3
 from typing import Dict , List
 from pydantic import BaseModel
-from models import User, Event, EventCreate ,UserEvent   , UpdateUserData
+from models import User, Event, EventCreate ,UserEvent   , UpdateUserData , Message
 from fastapi import FastAPI, Form, HTTPException, status
 from datetime import datetime, timedelta
 from fastapi.staticfiles import StaticFiles
@@ -22,6 +22,7 @@ import json
 import uuid
 
 import re
+from fastapi import Form
 
 
 
@@ -49,7 +50,7 @@ app.add_middleware(
 def create_messages_table():
     conn_messages ,c_messages =  connect_messages_db()
     c_messages.execute('''CREATE TABLE IF NOT EXISTS messages
-                 (id INTEGER PRIMARY KEY, user_1_id INTEGER, user_2_id INTEGER, message TEXT, current_date_time TEXT)''')
+                 (id INTEGER PRIMARY KEY, user_1_id INTEGER,text TEXT , user_2_id INTEGER, current_date_time TEXT , avatar TEXT )''')
     conn_messages.commit()
     conn_messages.close()
 
@@ -67,22 +68,18 @@ async def get_messages(user_1_id: int, user_2_id: int):
     c_messages.execute('SELECT user_1_id, user_2_id, message, current_date_time FROM messages WHERE (user_1_id=? AND user_2_id=?) OR (user_1_id=? AND user_2_id=?)', (user_1_id, user_2_id, user_2_id, user_1_id))
     messages_data = c_messages.fetchall()
     conn_messages.close()
-    messages_dict = []
-    for message in messages_data:
-        message_dict = {
-            "user_1_id": message[0],
-            "user_2_id": message[1],
-            "message": message[2],
-            "current_date_time": message[3]
-        }
-        messages_dict.append(message_dict)
-    return messages_dict
+    return messages_data
 
 @app.post("/messages/{user_1_id}/{user_2_id}")
-async def create_message(user_1_id: int, user_2_id: int, message: str):
+async def create_message(message_data: Message):
     conn_messages ,c_messages = connect_messages_db()
+    user_1_id=message_data.user_id_1
+    text = message_data.text
     current_date_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    c_messages.execute("INSERT INTO messages (user_1_id, user_2_id, message, current_date_time) VALUES (?, ?, ?, ?)", (user_1_id, user_2_id, message, current_date_time))
+    avatar = message_data.avatar
+    
+    user_2_id = message_data.user_id_2
+    c_messages.execute("INSERT INTO messages (user_1_id, user_2_id, text, current_date_time ,avatar) VALUES (?, ?, ?, ? , ?)", (user_1_id, user_2_id, text, current_date_time , avatar))
     conn_messages.commit()
     conn_messages.close()
     return {"message": "Message created successfully"}
@@ -107,7 +104,7 @@ def connect_users_db():
 
 create_users_table()
 
-def get_user(username: str):
+async def get_user(username: str):
     conn_users, c_users = connect_users_db()  
     c_users.execute('SELECT * FROM users WHERE username=?', (username,))
     user_data = c_users.fetchone()
@@ -133,8 +130,13 @@ def check_user(username: str):
         return True
     return False
 
-def authenticate_user(username: str, password: str):
-    user = get_user(username)
+def verify_password(plain_password, hashed_password):
+    return pwd_context.verify(plain_password, hashed_password)
+
+
+async def authenticate_user(username: str, password: str):
+    user = await get_user(username)
+    print(user)
     if not user:
         return False
     if not verify_password(password, user[2]):
@@ -168,8 +170,6 @@ def is_safe_password(password):
         return "password must contain at least one special character"    
     return True
 
-def verify_password(plain_password, hashed_password):
-    return pwd_context.verify(plain_password, hashed_password)
 
 # Token generation function
 def create_access_token(username: str):
