@@ -10,8 +10,7 @@ cryptography==42.0.2
 databases==0.8.0
 DateTime==5.4
 decorator==5.1.1
-dnspython==2.5.0
-ecdsa==0.18.0
+dnspython==2.5.0
 executing==2.0.1
 Faker==23.1.0
 fastapi==0.109.2
